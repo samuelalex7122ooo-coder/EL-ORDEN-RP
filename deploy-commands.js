@@ -1,38 +1,83 @@
 ﻿require("dotenv").config();
 
 const {
-  REST, Routes, SlashCommandBuilder, PermissionFlagsBits
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  PermissionFlagsBits,
+  ChannelType
 } = require("discord.js");
-
-const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
-
-if (!DISCORD_TOKEN || !CLIENT_ID || !GUILD_ID) {
-  console.error("Completa DISCORD_TOKEN, CLIENT_ID y GUILD_ID en .env.");
-  process.exit(1);
-}
 
 const commands = [
   new SlashCommandBuilder()
-    .setName("ping")
-    .setDescription("Comprueba si EL ORDEN RP está conectado"),
+    .setName("configurar-verificacion")
+    .setDescription("Selecciona el rol que se asignará al verificar")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addRoleOption(o =>
+      o.setName("rol")
+        .setDescription("Rol que recibirán los miembros verificados")
+        .setRequired(true)),
 
   new SlashCommandBuilder()
-    .setName("verificacion")
-    .setDescription("Publica el panel rojo de verificación")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-].map(command => command.toJSON());
+    .setName("editar-panel")
+    .setDescription("Personaliza el panel de verificación de este servidor")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(o =>
+      o.setName("titulo")
+        .setDescription("Título del panel")
+        .setMaxLength(256))
+    .addStringOption(o =>
+      o.setName("mensaje")
+        .setDescription("Descripción del panel")
+        .setMaxLength(4000))
+    .addStringOption(o =>
+      o.setName("boton")
+        .setDescription("Texto del botón")
+        .setMaxLength(80))
+    .addStringOption(o =>
+      o.setName("imagen")
+        .setDescription("URL HTTPS de imagen, o escribe ninguna para quitarla")
+        .setMaxLength(500))
+    .addStringOption(o =>
+      o.setName("color")
+        .setDescription("Color hexadecimal, por ejemplo #3498DB")
+        .setMaxLength(7)),
 
-const rest = new REST({ version: "10" }).setToken(DISCORD_TOKEN);
+  new SlashCommandBuilder()
+    .setName("publicar-verificacion")
+    .setDescription("Publica el panel en un canal de este servidor")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addChannelOption(o =>
+      o.setName("canal")
+        .setDescription("Canal de texto donde publicar")
+        .addChannelTypes(ChannelType.GuildText)
+        .setRequired(true)),
 
-(async () => {
-  try {
-    await rest.put(
-      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-      { body: commands }
-    );
-    console.log("✅ Comandos registrados en EL ORDEN RP.");
-  } catch (error) {
-    console.error("Error registrando comandos:", error.message);
-    process.exitCode = 1;
+  new SlashCommandBuilder()
+    .setName("ping")
+    .setDescription("Comprueba si EL ORDEN RP responde")
+].map(c => c.toJSON());
+
+async function main() {
+  const token = process.env.DISCORD_TOKEN;
+  const clientId = process.env.CLIENT_ID;
+
+  if (!token || !clientId) {
+    throw new Error("Falta DISCORD_TOKEN o CLIENT_ID en el archivo .env");
   }
-})();
+
+  const rest = new REST({ version: "10" }).setToken(token);
+
+  await rest.put(
+    Routes.applicationCommands(clientId),
+    { body: commands }
+  );
+
+  console.log("Comandos globales registrados correctamente.");
+  console.log("Pueden tardar un tiempo en aparecer en Discord.");
+}
+
+main().catch(error => {
+  console.error("No se pudieron registrar los comandos:", error.message);
+  process.exitCode = 1;
+});

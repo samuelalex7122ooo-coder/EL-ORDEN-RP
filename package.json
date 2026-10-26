@@ -1,7 +1,7 @@
 ﻿{
   "name": "el-orden-rp",
-  "version": "1.0.0",
-  "description": "Bot de verificacion multi-servidor de El Orden RP",
+  "version": "2.0.0",
+  "description": "Bot de verificacion configurable por servidor",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
