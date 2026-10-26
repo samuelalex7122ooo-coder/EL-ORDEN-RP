@@ -14,5 +14,8 @@
     "better-sqlite3": "^13.0.3",
     "discord.js": "^14.22.1",
     "dotenv": "^16.6.1"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.3": true
   }
 }
