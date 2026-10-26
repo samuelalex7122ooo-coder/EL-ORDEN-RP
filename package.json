@@ -1,0 +1,18 @@
+﻿{
+  "name": "el-orden-rp",
+  "version": "1.0.0",
+  "description": "Bot de verificacion multi-servidor de El Orden RP",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "deploy": "node deploy-commands.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.4.1",
+    "discord.js": "^14.22.1",
+    "dotenv": "^16.6.1"
+  }
+}
