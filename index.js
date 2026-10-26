@@ -123,6 +123,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
       if (interaction.commandName === "configurar-verificacion") {
         const role = interaction.options.getRole("rol", true);
+        if (!interaction.guild || !interaction.guildId) { return interaction.reply({ content: "Este comando solo funciona dentro de un servidor.", flags: 64 }); }
         const botMember = await interaction.guild.members.fetchMe();
 
         if (role.id === interaction.guild.id || role.managed ||
@@ -211,6 +212,7 @@ client.on(Events.InteractionCreate, async interaction => {
           });
         }
 
+        if (!interaction.guild || !interaction.guildId) { return interaction.reply({ content: "Este comando solo funciona dentro de un servidor.", flags: 64 }); }
         const botMember = await interaction.guild.members.fetchMe();
         const permissions = channel.permissionsFor(botMember);
 
@@ -266,7 +268,8 @@ client.on(Events.InteractionCreate, async interaction => {
         });
       }
 
-      const botMember = await interaction.guild.members.fetchMe();
+      if (!interaction.guild || !interaction.guildId) { return interaction.reply({ content: "Este comando solo funciona dentro de un servidor.", flags: 64 }); }
+        const botMember = await interaction.guild.members.fetchMe();
       if (role.position >= botMember.roles.highest.position ||
           !botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
         return interaction.reply({
@@ -302,3 +305,4 @@ client.login(process.env.DISCORD_TOKEN).catch(error => {
   console.error("No se pudo iniciar sesión en Discord:", error.message);
   process.exitCode = 1;
 });
+
