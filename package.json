@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "el-orden-rp",
   "version": "2.0.0",
   "description": "Bot de verificacion configurable por servidor",
@@ -11,7 +11,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "better-sqlite3": "^12.4.1",
+    "better-sqlite3": "^13.0.3",
     "discord.js": "^14.22.1",
     "dotenv": "^16.6.1"
   }
