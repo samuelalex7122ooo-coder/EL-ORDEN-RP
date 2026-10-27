@@ -58,6 +58,17 @@ db.exec(`
   );
 `);
 
+const strikeColumns = db.prepare("PRAGMA table_info(staff_strikes)").all();
+if (!strikeColumns.some(c => c.name === "active")) {
+  db.exec("ALTER TABLE staff_strikes ADD COLUMN active INTEGER NOT NULL DEFAULT 1");
+}
+
+db.exec("CREATE TABLE IF NOT EXISTS strike_role_settings (guild_id TEXT PRIMARY KEY, role_1 TEXT NOT NULL, role_2 TEXT NOT NULL, role_3 TEXT NOT NULL)");
+
+const getStrikeRoles = db.prepare("SELECT role_1, role_2, role_3 FROM strike_role_settings WHERE guild_id = ?");
+const setStrikeRoles = db.prepare("INSERT INTO strike_role_settings (guild_id, role_1, role_2, role_3) VALUES (?, ?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET role_1 = excluded.role_1, role_2 = excluded.role_2, role_3 = excluded.role_3");
+const getActiveStrikeRows = db.prepare("SELECT id FROM staff_strikes WHERE guild_id = ? AND staff_id = ? AND active = 1 ORDER BY id DESC");
+const retireStrikeRow = db.prepare("UPDATE staff_strikes SET active = 0 WHERE id = ? AND guild_id = ? AND staff_id = ? AND active = 1");
 const getStrikeChannel = db.prepare(
   "SELECT channel_id FROM strike_settings WHERE guild_id = ?"
 );
@@ -68,9 +79,7 @@ const setStrikeChannel = db.prepare(`
   ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id
 `);
 
-const countStrikes = db.prepare(
-  "SELECT COUNT(*) AS total FROM staff_strikes WHERE guild_id = ? AND staff_id = ?"
-);
+const countStrikes = db.prepare("SELECT COUNT(*) AS total FROM staff_strikes WHERE guild_id = ? AND staff_id = ? AND active = 1");
 
 const saveStrike = db.prepare(`
   INSERT INTO staff_strikes (guild_id, staff_id, moderator_id, reason, strike_number)
@@ -186,74 +195,95 @@ client.on(Events.InteractionCreate, async interaction => {
 
       if (interaction.commandName === "strike") {
         await interaction.deferReply({ ephemeral: true });
-
         const staff = interaction.options.getUser("staff", true);
         const razon = interaction.options.getString("razon", true).trim();
+        if (razon.length < 3) return interaction.editReply("Escribe una razón válida de al menos 3 caracteres.");
+        if (staff.bot || staff.id === interaction.user.id) return interaction.editReply("Selecciona a otro miembro del staff, no a un bot ni a ti mismo.");
 
-        if (razon.length < 3) {
-          return interaction.editReply("Escribe una razón válida de al menos 3 caracteres.");
-        }
-        if (staff.bot || staff.id === interaction.user.id) {
-          return interaction.editReply("Selecciona a otro miembro del staff, no a un bot ni a ti mismo.");
-        }
-
-        const configuracion = getStrikeChannel.get(interaction.guildId);
-        if (!configuracion) {
-          return interaction.editReply("Primero configura el canal con /configurar-canal-strikes.");
-        }
-
-        const canal = await interaction.guild.channels.fetch(configuracion.channel_id).catch(() => null);
-        if (!canal?.isTextBased() || !canal.send) {
-          return interaction.editReply("El canal de strikes ya no existe o no es un canal de texto. Configúralo de nuevo.");
-        }
+        const channelCfg = getStrikeChannel.get(interaction.guildId);
+        const roleCfg = getStrikeRoles.get(interaction.guildId);
+        if (!channelCfg || !roleCfg) return interaction.editReply("Configura primero el canal y los tres roles de strikes.");
+        const channel = await interaction.guild.channels.fetch(channelCfg.channel_id).catch(() => null);
+        if (!channel || !channel.isTextBased() || !channel.send) return interaction.editReply("El canal de strikes no existe o no es accesible.");
 
         const total = countStrikes.get(interaction.guildId, staff.id).total + 1;
-        const registro = new EmbedBuilder()
-          .setColor("#E74C3C")
-          .setTitle("🕷️ SANTANDER RP | SANCIÓN AL STAFF")
-          .setDescription(
-            "Has recibido una sanción administrativa dentro del equipo de SANTANDER RP.\n\n" +
-            "**Sanción:** Strike #" + total + "\n" +
-            "**Motivo:** " + razon + "\n" +
-            "**Aplicado por:** " + interaction.user.tag + "\n" +
-            "**Razón del strike:** " + razon + "\n\n" +
-            "Respeta las normas internas del equipo. Las reincidencias pueden ocasionar sanciones adicionales."
-          )
-          .addFields(
-            { name: "Staff sancionado", value: staff.tag + " (" + staff.id + ")" },
-            { name: "Administrador", value: interaction.user.tag + " (" + interaction.user.id + ")" }
-          )
-          .setTimestamp();
-
-        const dm = new EmbedBuilder()
-          .setColor("#E74C3C")
-          .setTitle("🕷️ SANTANDER RP | STRIKE AL STAFF")
-          .setDescription(
-            "**STAFF SANCIONADO**\n" + staff.toString() + "\n\n" +
-            "**RAZÓN DEL STRIKE**\n" + razon + "\n\n" +
-            "**STRIKE APLICADO POR**\n" + interaction.user.toString()
-          )
-          .setTimestamp();
-
+        if (total > 3) return interaction.editReply("Este miembro ya tiene 3 strikes activos. Usa /unstrike antes de aplicar otro.");
+        const roleIds = [roleCfg.role_1, roleCfg.role_2, roleCfg.role_3];
+        const role = await interaction.guild.roles.fetch(roleIds[total - 1]).catch(() => null);
+        const member = await interaction.guild.members.fetch(staff.id).catch(() => null);
+        const botMember = await interaction.guild.members.fetchMe();
+        if (!member || !role) return interaction.editReply("No encuentro al miembro o al rol configurado.");
+        if (role.managed || role.position >= botMember.roles.highest.position) return interaction.editReply("El rol está por encima del bot o no se puede administrar. Revisa la jerarquía.");
+        const hadRole = member.roles.cache.has(role.id);
+        let savedId = null;
         try {
-          await canal.send({ embeds: [registro] });
+          await member.roles.add(role, "Strike #" + total + ": " + razon);
+          const result = saveStrike.run(interaction.guildId, staff.id, interaction.user.id, razon, total);
+          savedId = Number(result.lastInsertRowid);
+          const embed = new EmbedBuilder().setColor("#E74C3C").setTitle("SANTANDER RP | STRIKE AL STAFF").setDescription(
+            "**Staff:** " + staff.tag + "\n**Strike activo:** #" + total + "\n**Rol asignado:** " + role.name + "\n**Motivo:** " + razon + "\n**Aplicado por:** " + interaction.user.tag
+          ).setTimestamp();
+          await channel.send({ embeds: [embed] });
         } catch (error) {
-          console.error("No se pudo registrar el strike:", error);
-          return interaction.editReply("No pude publicar el registro. Revisa los permisos del bot en el canal.");
+          console.error("Error aplicando strike:", error);
+          if (savedId !== null) db.prepare("UPDATE staff_strikes SET active = 0 WHERE id = ?").run(savedId);
+          if (!hadRole) await member.roles.remove(role, "Reversión por error al aplicar strike").catch(() => {});
+          return interaction.editReply("No se pudo completar el strike. Revisa permisos y registros del bot.");
         }
-
-        saveStrike.run(interaction.guildId, staff.id, interaction.user.id, razon, total);
-
-        let avisoDM = "Se publicó el registro en el canal de strikes.";
         try {
-          await staff.send({ embeds: [dm] });
-        } catch {
-          avisoDM = "No pude enviar el DM; el usuario puede tener los mensajes privados desactivados. El strike sí quedó registrado.";
+          await staff.send({ embeds: [new EmbedBuilder().setColor("#E74C3C").setTitle("SANTANDER RP | STRIKE AL STAFF").setDescription("Strike #" + total + "\nMotivo: " + razon + "\nAplicado por: " + interaction.user.tag).setTimestamp()] });
+        } catch {}
+        return interaction.editReply("Strike #" + total + " registrado para " + staff.tag + " con el rol " + role.name + ".");
+      }
+      if (interaction.commandName === "configurar-roles-strikes") {
+        const r1 = interaction.options.getRole("rol_strike_1", true);
+        const r2 = interaction.options.getRole("rol_strike_2", true);
+        const r3 = interaction.options.getRole("rol_strike_3", true);
+        if (new Set([r1.id, r2.id, r3.id]).size !== 3) return interaction.reply({ content: "Selecciona tres roles distintos.", ephemeral: true });
+        const botMember = await interaction.guild.members.fetchMe();
+        for (const role of [r1, r2, r3]) {
+          if (role.managed || role.position >= botMember.roles.highest.position) return interaction.reply({ content: "Cada rol debe estar por debajo del rol más alto del bot y ser administrable.", ephemeral: true });
         }
-
-        return interaction.editReply("Strike #" + total + " registrado para " + staff.tag + ". " + avisoDM);
+        setStrikeRoles.run(interaction.guildId, r1.id, r2.id, r3.id);
+        return interaction.reply({ content: "Roles configurados: strike 1 " + r1 + ", strike 2 " + r2 + ", strike 3 " + r3 + ".", ephemeral: true });
       }
 
+      if (interaction.commandName === "unstrike") {
+        await interaction.deferReply({ ephemeral: true });
+        const staff = interaction.options.getUser("staff", true);
+        const razon = interaction.options.getString("razon", true).trim();
+        const cuantos = interaction.options.getInteger("cuantos_strikes", true);
+        const selectedRole = interaction.options.getRole("rol_strike", true);
+        if (staff.bot || staff.id === interaction.user.id) return interaction.editReply("Selecciona a otro miembro del staff.");
+        if (razon.length < 3 || cuantos < 1 || cuantos > 3) return interaction.editReply("La razón debe tener al menos 3 caracteres y la cantidad debe ser de 1 a 3.");
+        const channelCfg = getStrikeChannel.get(interaction.guildId);
+        const roleCfg = getStrikeRoles.get(interaction.guildId);
+        if (!channelCfg || !roleCfg) return interaction.editReply("Configura primero el canal y los roles de strikes.");
+        if (![roleCfg.role_1, roleCfg.role_2, roleCfg.role_3].includes(selectedRole.id)) return interaction.editReply("Elige uno de los roles de strike configurados.");
+        const rows = getActiveStrikeRows.all(interaction.guildId, staff.id);
+        if (rows.length < cuantos) return interaction.editReply("El miembro no tiene suficientes strikes activos para retirar.");
+        const member = await interaction.guild.members.fetch(staff.id).catch(() => null);
+        if (!member) return interaction.editReply("No encuentro al miembro en este servidor.");
+        const botMember = await interaction.guild.members.fetchMe();
+        if (selectedRole.position >= botMember.roles.highest.position || selectedRole.managed) return interaction.editReply("El bot no puede administrar ese rol; revisa la jerarquía.");
+        const channel = await interaction.guild.channels.fetch(channelCfg.channel_id).catch(() => null);
+        if (!channel || !channel.isTextBased() || !channel.send) return interaction.editReply("El canal de registros no está disponible.");
+        const wasAssigned = member.roles.cache.has(selectedRole.id);
+        try {
+          if (wasAssigned) await member.roles.remove(selectedRole, "Retiro administrativo de strikes: " + razon);
+          const chosen = rows.slice(0, cuantos);
+          const retire = db.transaction(() => { for (const row of chosen) retireStrikeRow.run(row.id, interaction.guildId, staff.id); });
+          retire();
+          const log = new EmbedBuilder().setColor("#2ECC71").setTitle("SANTANDER RP | STRIKES RETIRADOS").setDescription(
+            "**Staff:** " + staff.tag + "\n**Cantidad retirada:** " + cuantos + "\n**Rol seleccionado para quitar:** " + selectedRole.name + "\n**Motivo:** " + razon + "\n**Administrador:** " + interaction.user.tag
+          ).setTimestamp();
+          await channel.send({ embeds: [log] });
+        } catch (error) {
+          console.error("Error en /unstrike:", error);
+          return interaction.editReply("Ocurrió un error al retirar los strikes. Revisa permisos y registros del bot.");
+        }
+        return interaction.editReply("Retirados " + cuantos + " strike(s) activo(s) de " + staff.tag + ". Solo se intentó quitar el rol seleccionado: " + selectedRole.name + ".");
+      }
       if (interaction.commandName === "embed") {
         await interaction.deferReply({ ephemeral: true });
 
