@@ -1,4 +1,4 @@
-﻿require("dotenv").config();
+require("dotenv").config();
 
 const {
   REST,
@@ -53,6 +53,21 @@ const commands = [
         .addChannelTypes(ChannelType.GuildText)
         .setRequired(true)),
 
+  new SlashCommandBuilder()
+    .setName("embed")
+    .setDescription("Envía un mensaje personalizado con imagen y color")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(o =>
+      o.setName("titulo").setDescription("Título del mensaje").setRequired(true).setMaxLength(256))
+    .addStringOption(o =>
+      o.setName("texto").setDescription("Descripción del mensaje").setRequired(true).setMaxLength(4000))
+    .addStringOption(o =>
+      o.setName("color").setDescription("Color hexadecimal, ejemplo #3498DB").setRequired(true).setMaxLength(7))
+    .addChannelOption(o =>
+      o.setName("canal").setDescription("Canal donde enviar el mensaje").addChannelTypes(ChannelType.GuildText).setRequired(true))
+    .addStringOption(o =>
+      o.setName("foto").setDescription("Enlace directo a la imagen").setRequired(false))
+,
   new SlashCommandBuilder()
     .setName("ping")
     .setDescription("Comprueba si EL ORDEN RP responde")
