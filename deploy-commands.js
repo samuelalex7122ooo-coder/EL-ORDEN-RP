@@ -67,6 +67,7 @@ const commands = [
       o.setName("canal").setDescription("Canal donde enviar el mensaje").addChannelTypes(ChannelType.GuildText).setRequired(true))
     .addStringOption(o =>
       o.setName("foto").setDescription("Enlace directo a la imagen").setRequired(false))
+    .addStringOption(o => o.setName("invitacion").setDescription("Enlace de invitacion de Discord").setRequired(false).setMaxLength(200))
 ,
   new SlashCommandBuilder()
     .setName("ping")

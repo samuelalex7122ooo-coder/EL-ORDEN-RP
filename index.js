@@ -134,6 +134,7 @@ client.on(Events.InteractionCreate, async interaction => {
           const texto = interaction.options.getString("texto", true);
           const colorTexto = interaction.options.getString("color", true).trim();
           const foto = interaction.options.getString("foto");
+          const invitacion = interaction.options.getString("invitacion");
           const canal = interaction.options.getChannel("canal", true);
 
           if (!/^#?[0-9a-fA-F]{6}$/.test(colorTexto)) {
@@ -156,6 +157,13 @@ client.on(Events.InteractionCreate, async interaction => {
             .setTimestamp();
 
           if (foto) embed.setImage(foto);
+          if (invitacion) {
+            const url = invitacion.trim();
+            if (!/^https?:\/\/(discord\.gg\/|discord\.com\/invite\/)[A-Za-z0-9-]+\/?$/.test(url)) {
+              throw new Error("Usa una invitacion valida de Discord, como https://discord.gg/ejemplo");
+            }
+            embed.addFields({ name: "🔗 Invitacion al servidor", value: url });
+          }
 
           await canal.send({ embeds: [embed] });
           return interaction.editReply("Mensaje publicado correctamente en " + canal.toString() + ".");
