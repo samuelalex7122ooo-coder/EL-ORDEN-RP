@@ -70,6 +70,31 @@ const commands = [
     .addStringOption(o => o.setName("invitacion").setDescription("Enlace de invitacion de Discord").setRequired(false).setMaxLength(200))
 ,
   new SlashCommandBuilder()
+    .setName("configurar-canal-strikes")
+    .setDescription("Configura el canal donde se registran los strikes")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addChannelOption(o =>
+      o.setName("canal")
+        .setDescription("Canal de texto para los registros")
+        .addChannelTypes(ChannelType.GuildText)
+        .setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName("strike")
+    .setDescription("Aplica un strike a un miembro del staff")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addUserOption(o =>
+      o.setName("staff")
+        .setDescription("Miembro del staff sancionado")
+        .setRequired(true))
+    .addStringOption(o =>
+      o.setName("razon")
+        .setDescription("Razón obligatoria de la sanción")
+        .setRequired(true)
+        .setMinLength(3)
+        .setMaxLength(1000)),
+
+  new SlashCommandBuilder()
     .setName("ping")
     .setDescription("Comprueba si SANTANDER RP 🕷🕸 responde")
 ].map(c => c.toJSON());

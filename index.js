@@ -41,6 +41,42 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS strike_settings (
+    guild_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS staff_strikes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
+    staff_id TEXT NOT NULL,
+    moderator_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    strike_number INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+const getStrikeChannel = db.prepare(
+  "SELECT channel_id FROM strike_settings WHERE guild_id = ?"
+);
+
+const setStrikeChannel = db.prepare(`
+  INSERT INTO strike_settings (guild_id, channel_id)
+  VALUES (?, ?)
+  ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id
+`);
+
+const countStrikes = db.prepare(
+  "SELECT COUNT(*) AS total FROM staff_strikes WHERE guild_id = ? AND staff_id = ?"
+);
+
+const saveStrike = db.prepare(`
+  INSERT INTO staff_strikes (guild_id, staff_id, moderator_id, reason, strike_number)
+  VALUES (?, ?, ?, ?, ?)
+`);
+
 const getSettings = db.prepare(
   "SELECT * FROM verification_settings WHERE guild_id = ?"
 );
@@ -124,6 +160,98 @@ client.on(Events.InteractionCreate, async interaction => {
           content: "No tienes permiso. Necesitas administrar el servidor.",
           ephemeral: true
         });
+      }
+
+      if (interaction.commandName === "configurar-canal-strikes") {
+        const canal = interaction.options.getChannel("canal", true);
+        const permisos = canal.permissionsFor(await interaction.guild.members.fetchMe());
+
+        if (!permisos?.has([
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.EmbedLinks
+        ])) {
+          return interaction.reply({
+            content: "Necesito permisos para ver el canal, enviar mensajes y mostrar enlaces.",
+            ephemeral: true
+          });
+        }
+
+        setStrikeChannel.run(interaction.guildId, canal.id);
+        return interaction.reply({
+          content: "Canal de registros de strikes configurado: " + canal.toString(),
+          ephemeral: true
+        });
+      }
+
+      if (interaction.commandName === "strike") {
+        await interaction.deferReply({ ephemeral: true });
+
+        const staff = interaction.options.getUser("staff", true);
+        const razon = interaction.options.getString("razon", true).trim();
+
+        if (razon.length < 3) {
+          return interaction.editReply("Escribe una razón válida de al menos 3 caracteres.");
+        }
+        if (staff.bot || staff.id === interaction.user.id) {
+          return interaction.editReply("Selecciona a otro miembro del staff, no a un bot ni a ti mismo.");
+        }
+
+        const configuracion = getStrikeChannel.get(interaction.guildId);
+        if (!configuracion) {
+          return interaction.editReply("Primero configura el canal con /configurar-canal-strikes.");
+        }
+
+        const canal = await interaction.guild.channels.fetch(configuracion.channel_id).catch(() => null);
+        if (!canal?.isTextBased() || !canal.send) {
+          return interaction.editReply("El canal de strikes ya no existe o no es un canal de texto. Configúralo de nuevo.");
+        }
+
+        const total = countStrikes.get(interaction.guildId, staff.id).total + 1;
+        const registro = new EmbedBuilder()
+          .setColor("#E74C3C")
+          .setTitle("🕷️ SANTANDER RP | SANCIÓN AL STAFF")
+          .setDescription(
+            "Has recibido una sanción administrativa dentro del equipo de SANTANDER RP.\n\n" +
+            "**Sanción:** Strike #" + total + "\n" +
+            "**Motivo:** " + razon + "\n" +
+            "**Aplicado por:** " + interaction.user.tag + "\n" +
+            "**Razón del strike:** " + razon + "\n\n" +
+            "Respeta las normas internas del equipo. Las reincidencias pueden ocasionar sanciones adicionales."
+          )
+          .addFields(
+            { name: "Staff sancionado", value: staff.tag + " (" + staff.id + ")" },
+            { name: "Administrador", value: interaction.user.tag + " (" + interaction.user.id + ")" }
+          )
+          .setTimestamp();
+
+        const dm = new EmbedBuilder()
+          .setColor("#E74C3C")
+          .setTitle("🕷️ SANTANDER RP | STRIKE AL STAFF")
+          .setDescription(
+            "**STAFF SANCIONADO**\n" + staff.toString() + "\n\n" +
+            "**RAZÓN DEL STRIKE**\n" + razon + "\n\n" +
+            "**STRIKE APLICADO POR**\n" + interaction.user.toString()
+          )
+          .setTimestamp();
+
+        try {
+          await canal.send({ embeds: [registro] });
+        } catch (error) {
+          console.error("No se pudo registrar el strike:", error);
+          return interaction.editReply("No pude publicar el registro. Revisa los permisos del bot en el canal.");
+        }
+
+        saveStrike.run(interaction.guildId, staff.id, interaction.user.id, razon, total);
+
+        let avisoDM = "Se publicó el registro en el canal de strikes.";
+        try {
+          await staff.send({ embeds: [dm] });
+        } catch {
+          avisoDM = "No pude enviar el DM; el usuario puede tener los mensajes privados desactivados. El strike sí quedó registrado.";
+        }
+
+        return interaction.editReply("Strike #" + total + " registrado para " + staff.tag + ". " + avisoDM);
       }
 
       if (interaction.commandName === "embed") {
