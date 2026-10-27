@@ -70,7 +70,7 @@ const commands = [
 ,
   new SlashCommandBuilder()
     .setName("ping")
-    .setDescription("Comprueba si EL ORDEN RP responde")
+    .setDescription("Comprueba si SANTANDER RP 🕷🕸 responde")
 ].map(c => c.toJSON());
 
 async function main() {

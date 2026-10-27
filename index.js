@@ -33,7 +33,7 @@ db.exec(`
     guild_id TEXT PRIMARY KEY,
     role_id TEXT,
     channel_id TEXT,
-    title TEXT NOT NULL DEFAULT 'VerificaciÃ³n',
+    title TEXT NOT NULL DEFAULT 'Verificación',
     message TEXT NOT NULL DEFAULT 'Pulsa el botÃ³n para verificarte y obtener acceso al servidor.',
     button_text TEXT NOT NULL DEFAULT 'Verificarme',
     image_url TEXT NOT NULL DEFAULT '',
@@ -78,7 +78,7 @@ function makePanel(settings) {
     .setColor(settings.color)
     .setTitle(settings.title)
     .setDescription(settings.message)
-    .setFooter({ text: "EL ORDEN RP â€¢ VerificaciÃ³n" })
+    .setFooter({ text: "SANTANDER RP 🕷🕸 • Verificación" })
     .setTimestamp();
 
   if (settings.image_url) embed.setImage(settings.image_url);
@@ -94,7 +94,7 @@ function makePanel(settings) {
 }
 
 client.once(Events.ClientReady, readyClient => {
-  console.log(`EL ORDEN RP conectado como ${readyClient.user.tag}`);
+  console.log(`SANTANDER RP 🕷🕸 conectado como ${readyClient.user.tag}`);
   console.log("Sistema de verificaciÃ³n multi-servidor activo.");
 });
 
@@ -182,7 +182,7 @@ client.on(Events.InteractionCreate, async interaction => {
         updateRole.run(role.id, interaction.guildId);
 
         return interaction.reply({
-          content: `âœ… Rol de verificado configurado: ${role}\nEsta opciÃ³n solo afecta a este servidor.`,
+          content: `✅ Rol de verificado configurado: ${role}\nEsta opciÃ³n solo afecta a este servidor.`,
           ephemeral: true
         });
       }
@@ -234,7 +234,7 @@ client.on(Events.InteractionCreate, async interaction => {
         updateField.run(title, message, button, imageUrl, color, interaction.guildId);
 
         return interaction.reply({
-          content: "âœ… Panel actualizado y guardado para este servidor.",
+          content: "✅ Panel actualizado y guardado para este servidor.",
           embeds: [makePanel(settingsFor(interaction.guildId)).embeds[0]],
           ephemeral: true
         });
@@ -274,7 +274,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
         const sent = await channel.send(makePanel(current));
         return interaction.reply({
-          content: `âœ… Panel publicado en ${channel}.`,
+          content: `✅ Panel publicado en ${channel}.`,
           ephemeral: true
         });
       }
@@ -291,7 +291,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
       const modal = new ModalBuilder()
         .setCustomId("orden_rp_verificar_modal")
-        .setTitle("VerificaciÃ³n | EL ORDEN RP");
+        .setTitle("Verificación | SANTANDER RP 🕷🕸");
 
       const nombreInput = new TextInputBuilder()
         .setCustomId("nombre_rp")
@@ -341,7 +341,7 @@ client.on(Events.InteractionCreate, async interaction => {
       const settings = getSettings.get(interaction.guildId);
       if (!settings?.role_id) {
         return interaction.reply({
-          content: "La verificaciÃ³n aÃºn no estÃ¡ configurada en este servidor.",
+          content: "La verificaciÃ³n aún no está configurada en este servidor.",
           ephemeral: true
         });
       }
@@ -357,7 +357,7 @@ client.on(Events.InteractionCreate, async interaction => {
       const member = await interaction.guild.members.fetch(interaction.user.id);
       if (member.roles.cache.has(role.id)) {
         return interaction.reply({
-          content: "Ya estÃ¡s verificado. âœ…",
+          content: "Ya estás verificado. ✅",
           ephemeral: true
         });
       }
@@ -371,10 +371,10 @@ client.on(Events.InteractionCreate, async interaction => {
         });
       }
 
-      await member.roles.add(role, "VerificaciÃ³n mediante EL ORDEN RP");
+      await member.roles.add(role, "Verificación mediante SANTANDER RP 🕷🕸");
       let apodoActualizado = true;
       try {
-        await member.setNickname(`${nombreRP} | ${idRP}`, "Verificación de EL ORDEN RP");
+        await member.setNickname(`${nombreRP} | ${idRP}`, "Verificación de SANTANDER RP 🕷🕸");
       } catch (error) {
         apodoActualizado = false;
         console.error("No se pudo cambiar el apodo:", error.message);
@@ -382,7 +382,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
       const confirmacion = new EmbedBuilder()
         .setColor("#3498DB")
-        .setTitle("âœ… VerificaciÃ³n completada")
+        .setTitle("✅ Verificación completada")
         .setDescription(apodoActualizado ? "Verificación completada. Tu apodo se actualizó al nombre de personaje." : "Verificación completada, pero no se pudo cambiar tu apodo. Revisa los permisos del bot.")
         .addFields(
           { name: "Nombre dentro del RP", value: nombreRP },
@@ -398,10 +398,10 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 
   } catch (error) {
-    console.error("Error procesando interacciÃ³n:", error);
+    console.error("Error procesando interacción:", error);
 
     const reply = {
-      content: "OcurriÃ³ un error. Comprueba los permisos del bot y revisa la consola.",
+      content: "Ocurrió un error. Comprueba los permisos del bot y revisa la consola.",
       ephemeral: true
     };
 
