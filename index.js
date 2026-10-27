@@ -28,29 +28,7 @@ fs.mkdirSync(dataDir, { recursive: true });
 const db = new Database(path.join(dataDir, "orden-rp.sqlite"));
 db.pragma("journal_mode = WAL");
 
-const getServiceChannels = db.prepare(
-  "SELECT entry_channel_id, exit_channel_id FROM service_channel_settings WHERE guild_id = ?"
-);
-const saveServiceChannels = db.prepare(`
-  INSERT INTO service_channel_settings (guild_id, entry_channel_id, exit_channel_id)
-  VALUES (?, ?, ?)
-  ON CONFLICT(guild_id) DO UPDATE SET
-    entry_channel_id = excluded.entry_channel_id,
-    exit_channel_id = excluded.exit_channel_id
-`);
-const getActiveService = db.prepare(
-  "SELECT * FROM staff_service_sessions WHERE guild_id = ? AND user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
-);
-const createService = db.prepare(`
-  INSERT INTO staff_service_sessions
-    (guild_id, user_id, staff_name, game_id, staff_rank, started_at)
-  VALUES (?, ?, ?, ?, ?, ?)
-`);
-const finishService = db.prepare(`
-  UPDATE staff_service_sessions
-  SET ended_at = ?, duration_minutes = ?, status = 'finished'
-  WHERE id = ? AND status = 'active'
-`);
+
 
 
 db.exec(`
@@ -100,6 +78,31 @@ db.exec(`
     strike_number INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+`);
+
+// Consultas de servicio preparadas después de crear las tablas
+const getServiceChannels = db.prepare(
+  "SELECT entry_channel_id, exit_channel_id FROM service_channel_settings WHERE guild_id = ?"
+);
+const saveServiceChannels = db.prepare(`
+  INSERT INTO service_channel_settings (guild_id, entry_channel_id, exit_channel_id)
+  VALUES (?, ?, ?)
+  ON CONFLICT(guild_id) DO UPDATE SET
+    entry_channel_id = excluded.entry_channel_id,
+    exit_channel_id = excluded.exit_channel_id
+`);
+const getActiveService = db.prepare(
+  "SELECT * FROM staff_service_sessions WHERE guild_id = ? AND user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+);
+const createService = db.prepare(`
+  INSERT INTO staff_service_sessions
+    (guild_id, user_id, staff_name, game_id, staff_rank, started_at)
+  VALUES (?, ?, ?, ?, ?, ?)
+`);
+const finishService = db.prepare(`
+  UPDATE staff_service_sessions
+  SET ended_at = ?, duration_minutes = ?, status = 'finished'
+  WHERE id = ? AND status = 'active'
 `);
 
 const strikeColumns = db.prepare("PRAGMA table_info(staff_strikes)").all();
