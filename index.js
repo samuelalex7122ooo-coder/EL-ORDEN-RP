@@ -83,6 +83,35 @@ db.exec(`
 // Consultas de servicio preparadas después de crear las tablas
 console.log("[DIAGNÓSTICO] Base de datos:", path.join(dataDir, "orden-rp.sqlite"));
 console.log("[DIAGNÓSTICO] Tablas:", db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all().map(t => t.name).join(", "));
+console.log("[SQLITE] Archivo ejecutado:", __filename);
+console.log("[SQLITE] Base de datos:", path.join(dataDir, "orden-rp.sqlite"));
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS service_channel_settings (
+    guild_id TEXT PRIMARY KEY,
+    entry_channel_id TEXT NOT NULL,
+    exit_channel_id TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS staff_service_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    staff_name TEXT NOT NULL,
+    game_id INTEGER NOT NULL,
+    staff_rank TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    duration_minutes INTEGER,
+    status TEXT NOT NULL DEFAULT 'active'
+  );
+`);
+
+console.log(
+  "[SQLITE] Tabla service_channel_settings:",
+  db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='service_channel_settings'").get()
+    ? "EXISTE"
+    : "NO EXISTE"
+);
 const getServiceChannels = db.prepare(
   "SELECT entry_channel_id, exit_channel_id FROM service_channel_settings WHERE guild_id = ?"
 );
