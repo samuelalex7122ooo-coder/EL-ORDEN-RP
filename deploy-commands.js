@@ -3,6 +3,22 @@
 const { REST, Routes, SlashCommandBuilder, ChannelType } = require("discord.js");
 
 const commands = [
+
+  new SlashCommandBuilder()
+    .setName("entrada")
+    .setDescription("Registrar el inicio del servicio del staff")
+    .addStringOption(o => o.setName("nombre").setDescription("Nombre en el servidor RP").setRequired(true))
+    .addIntegerOption(o => o.setName("id").setDescription("ID de juego").setRequired(true).setMinValue(1))
+    .addStringOption(o => o.setName("rango").setDescription("Rango del staff").setRequired(true)),
+  new SlashCommandBuilder()
+    .setName("salida")
+    .setDescription("Finalizar el servicio actual del staff"),
+  new SlashCommandBuilder()
+    .setName("configurar-canales-servicio")
+    .setDescription("Configurar los canales de entrada y salida")
+    .addChannelOption(o => o.setName("entrada").setDescription("Canal de entradas").setRequired(true))
+    .addChannelOption(o => o.setName("salida").setDescription("Canal de salidas").setRequired(true)),
+
   new SlashCommandBuilder().setName("configurar-verificacion")
     .setDescription("Selecciona el rol que se asignará al verificar").setDefaultMemberPermissions(null)
     .addRoleOption(o => o.setName("rol").setDescription("Rol para miembros verificados").setRequired(true)),

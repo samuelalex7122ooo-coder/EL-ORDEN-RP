@@ -28,6 +28,31 @@ fs.mkdirSync(dataDir, { recursive: true });
 const db = new Database(path.join(dataDir, "orden-rp.sqlite"));
 db.pragma("journal_mode = WAL");
 
+const getServiceChannels = db.prepare(
+  "SELECT entry_channel_id, exit_channel_id FROM service_channel_settings WHERE guild_id = ?"
+);
+const saveServiceChannels = db.prepare(`
+  INSERT INTO service_channel_settings (guild_id, entry_channel_id, exit_channel_id)
+  VALUES (?, ?, ?)
+  ON CONFLICT(guild_id) DO UPDATE SET
+    entry_channel_id = excluded.entry_channel_id,
+    exit_channel_id = excluded.exit_channel_id
+`);
+const getActiveService = db.prepare(
+  "SELECT * FROM staff_service_sessions WHERE guild_id = ? AND user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+);
+const createService = db.prepare(`
+  INSERT INTO staff_service_sessions
+    (guild_id, user_id, staff_name, game_id, staff_rank, started_at)
+  VALUES (?, ?, ?, ?, ?, ?)
+`);
+const finishService = db.prepare(`
+  UPDATE staff_service_sessions
+  SET ended_at = ?, duration_minutes = ?, status = 'finished'
+  WHERE id = ? AND status = 'active'
+`);
+
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS verification_settings (
     guild_id TEXT PRIMARY KEY,
@@ -42,6 +67,25 @@ db.exec(`
 `);
 
 db.exec(`
+
+  CREATE TABLE IF NOT EXISTS service_channel_settings (
+    guild_id TEXT PRIMARY KEY,
+    entry_channel_id TEXT NOT NULL,
+    exit_channel_id TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS staff_service_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    staff_name TEXT NOT NULL,
+    game_id INTEGER NOT NULL,
+    staff_rank TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    duration_minutes INTEGER,
+    status TEXT NOT NULL DEFAULT 'active'
+  );
+
   CREATE TABLE IF NOT EXISTS strike_settings (
     guild_id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL
@@ -144,6 +188,122 @@ client.once(Events.ClientReady, readyClient => {
 });
 
 client.on(Events.InteractionCreate, async interaction => {
+
+  // SANTANDER_RP_SERVICE_MODULE
+  if (interaction.isChatInputCommand() && interaction.guild) {
+    const command = interaction.commandName;
+
+    if (command === "configurar-canales-servicio") {
+      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+        return interaction.reply({ content: "No tienes permiso para configurar estos canales.", ephemeral: true });
+      }
+      const entry = interaction.options.getChannel("entrada", true);
+      const exit = interaction.options.getChannel("salida", true);
+      if (!entry.isTextBased() || !exit.isTextBased()) {
+        return interaction.reply({ content: "Selecciona dos canales de texto válidos.", ephemeral: true });
+      }
+      saveServiceChannels.run(interaction.guildId, entry.id, exit.id);
+      return interaction.reply({
+        content: "Canales configurados. Entrada: <#" + entry.id + "> · Salida: <#" + exit.id + ">",
+        ephemeral: true
+      });
+    }
+
+    if (command === "entrada") {
+      await interaction.deferReply({ ephemeral: true });
+      const channels = getServiceChannels.get(interaction.guildId);
+      if (!channels) {
+        return interaction.editReply("Primero configura los canales con /configurar-canales-servicio.");
+      }
+      if (getActiveService.get(interaction.guildId, interaction.user.id)) {
+        return interaction.editReply("Ya tienes un servicio activo. Usa /salida antes de iniciar otro.");
+      }
+
+      const staffName = interaction.options.getString("nombre", true).trim();
+      const gameId = interaction.options.getInteger("id", true);
+      const staffRank = interaction.options.getString("rango", true).trim();
+      if (!staffName || !staffRank || staffName.length > 80 || staffRank.length > 80) {
+        return interaction.editReply("El nombre y el rango deben tener entre 1 y 80 caracteres.");
+      }
+
+      const started = new Date();
+      const channel = await interaction.guild.channels.fetch(channels.entry_channel_id).catch(() => null);
+      if (!channel || !channel.isTextBased()) {
+        return interaction.editReply("El canal de entrada configurado no existe o no es un canal de texto.");
+      }
+
+      const embed = new EmbedBuilder()
+        .setColor(0x57F287)
+        .setTitle("🟢 SERVICIO INICIADO")
+        .addFields(
+          { name: "♦️ NOMBRE", value: staffName, inline: true },
+          { name: "♦️ ID", value: String(gameId), inline: true },
+          { name: "♦️ RANGO", value: staffRank, inline: true },
+          { name: "🟢 ENTRADA", value: started.toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/El_Salvador" }), inline: true },
+          { name: "📅 Fecha", value: started.toLocaleDateString("es-SV", { weekday: "long", day: "numeric", month: "long", timeZone: "America/El_Salvador" }), inline: true },
+          { name: "🛠️ SALIDA", value: "En servicio...", inline: true }
+        )
+        .setFooter({ text: "Staff | 𝐒𝐚𝐧𝐭𝐚𝐧𝐝𝐞𝐫 𝐑𝐏 • Nuevo punto registrado" })
+        .setTimestamp(started);
+
+      try {
+        await channel.send({ embeds: [embed] });
+        createService.run(
+          interaction.guildId, interaction.user.id, staffName, gameId, staffRank, started.toISOString()
+        );
+      } catch (error) {
+        console.error("Error registrando entrada:", error);
+        return interaction.editReply("No se pudo completar el registro. Revisa los permisos del bot y vuelve a intentarlo.");
+      }
+      return interaction.editReply("Entrada registrada correctamente en " + channel.toString() + ".");
+    }
+
+    if (command === "salida") {
+      await interaction.deferReply({ ephemeral: true });
+      const channels = getServiceChannels.get(interaction.guildId);
+      if (!channels) {
+        return interaction.editReply("Primero configura los canales con /configurar-canales-servicio.");
+      }
+      const session = getActiveService.get(interaction.guildId, interaction.user.id);
+      if (!session) {
+        return interaction.editReply("No tienes una entrada activa. Usa /entrada primero.");
+      }
+
+      const ended = new Date();
+      const started = new Date(session.started_at);
+      const minutes = Math.max(0, Math.floor((ended.getTime() - started.getTime()) / 60000));
+      const duration = Math.floor(minutes / 60) + "h " + (minutes % 60) + "min";
+      const channel = await interaction.guild.channels.fetch(channels.exit_channel_id).catch(() => null);
+      if (!channel || !channel.isTextBased()) {
+        return interaction.editReply("El canal de salida configurado no existe o no es un canal de texto.");
+      }
+
+      const embed = new EmbedBuilder()
+        .setColor(0xED4245)
+        .setTitle("🔴 SERVICIO FINALIZADO")
+        .addFields(
+          { name: "♦️ NOMBRE", value: session.staff_name, inline: true },
+          { name: "♦️ ID", value: String(session.game_id), inline: true },
+          { name: "♦️ RANGO", value: session.staff_rank, inline: true },
+          { name: "🟢 ENTRADA", value: started.toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/El_Salvador" }), inline: true },
+          { name: "📅 Fecha", value: started.toLocaleDateString("es-SV", { weekday: "long", day: "numeric", month: "long", timeZone: "America/El_Salvador" }), inline: true },
+          { name: "🛠️ SALIDA", value: ended.toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/El_Salvador" }), inline: true },
+          { name: "⏱️ Tiempo total", value: duration, inline: false }
+        )
+        .setFooter({ text: "Staff | 𝐒𝐚𝐧𝐭𝐚𝐧𝐝𝐞𝐫 𝐑𝐏 • Nuevo punto registrado" })
+        .setTimestamp(ended);
+
+      try {
+        await channel.send({ embeds: [embed] });
+        finishService.run(ended.toISOString(), minutes, session.id);
+      } catch (error) {
+        console.error("Error registrando salida:", error);
+        return interaction.editReply("No se pudo completar la salida. Revisa los permisos del bot y vuelve a intentarlo.");
+      }
+      return interaction.editReply("Servicio finalizado. Tiempo registrado: " + duration + ".");
+    }
+  }
+
   if (interaction.isRepliable() && !interaction.isAutocomplete()) {
     const tiempoInicio = Date.now();
     interaction.__ordenInicio = tiempoInicio;
