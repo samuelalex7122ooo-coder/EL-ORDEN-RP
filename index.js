@@ -81,6 +81,8 @@ db.exec(`
 `);
 
 // Consultas de servicio preparadas después de crear las tablas
+console.log("[DIAGNÓSTICO] Base de datos:", path.join(dataDir, "orden-rp.sqlite"));
+console.log("[DIAGNÓSTICO] Tablas:", db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all().map(t => t.name).join(", "));
 const getServiceChannels = db.prepare(
   "SELECT entry_channel_id, exit_channel_id FROM service_channel_settings WHERE guild_id = ?"
 );
