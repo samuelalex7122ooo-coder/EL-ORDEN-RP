@@ -1,4 +1,4 @@
-require("dotenv").config();
+﻿require("dotenv").config();
 
 const {
   REST,
@@ -11,28 +11,28 @@ const {
 const commands = [
   new SlashCommandBuilder()
     .setName("configurar-verificacion")
-    .setDescription("Selecciona el rol que se asignará al verificar")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDescription("Selecciona el rol que se asignarÃ¡ al verificar")
+    .setDefaultMemberPermissions(null)
     .addRoleOption(o =>
       o.setName("rol")
-        .setDescription("Rol que recibirán los miembros verificados")
+        .setDescription("Rol que recibirÃ¡n los miembros verificados")
         .setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("editar-panel")
-    .setDescription("Personaliza el panel de verificación de este servidor")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDescription("Personaliza el panel de verificaciÃ³n de este servidor")
+    .setDefaultMemberPermissions(null)
     .addStringOption(o =>
       o.setName("titulo")
-        .setDescription("Título del panel")
+        .setDescription("TÃ­tulo del panel")
         .setMaxLength(256))
     .addStringOption(o =>
       o.setName("mensaje")
-        .setDescription("Descripción del panel")
+        .setDescription("DescripciÃ³n del panel")
         .setMaxLength(4000))
     .addStringOption(o =>
       o.setName("boton")
-        .setDescription("Texto del botón")
+        .setDescription("Texto del botÃ³n")
         .setMaxLength(80))
     .addStringOption(o =>
       o.setName("imagen")
@@ -46,7 +46,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("publicar-verificacion")
     .setDescription("Publica el panel en un canal de este servidor")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDefaultMemberPermissions(null)
     .addChannelOption(o =>
       o.setName("canal")
         .setDescription("Canal de texto donde publicar")
@@ -55,12 +55,12 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("embed")
-    .setDescription("Envía un mensaje personalizado con imagen y color")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDescription("EnvÃ­a un mensaje personalizado con imagen y color")
+    .setDefaultMemberPermissions(null)
     .addStringOption(o =>
-      o.setName("titulo").setDescription("Título del mensaje").setRequired(true).setMaxLength(256))
+      o.setName("titulo").setDescription("TÃ­tulo del mensaje").setRequired(true).setMaxLength(256))
     .addStringOption(o =>
-      o.setName("texto").setDescription("Descripción del mensaje").setRequired(true).setMaxLength(4000))
+      o.setName("texto").setDescription("DescripciÃ³n del mensaje").setRequired(true).setMaxLength(4000))
     .addStringOption(o =>
       o.setName("color").setDescription("Color hexadecimal, ejemplo #3498DB").setRequired(true).setMaxLength(7))
     .addChannelOption(o =>
@@ -72,7 +72,7 @@ const commands = [
   new SlashCommandBuilder()
     .setName("configurar-canal-strikes")
     .setDescription("Configura el canal donde se registran los strikes")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDefaultMemberPermissions(null)
     .addChannelOption(o =>
       o.setName("canal")
         .setDescription("Canal de texto para los registros")
@@ -82,21 +82,21 @@ const commands = [
   new SlashCommandBuilder()
     .setName("strike")
     .setDescription("Aplica un strike a un miembro del staff")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDefaultMemberPermissions(null)
     .addUserOption(o =>
       o.setName("staff")
         .setDescription("Miembro del staff sancionado")
         .setRequired(true))
     .addStringOption(o =>
       o.setName("razon")
-        .setDescription("Razón obligatoria de la sanción")
+        .setDescription("RazÃ³n obligatoria de la sanciÃ³n")
         .setRequired(true)
         .setMinLength(3)
         .setMaxLength(1000)),
 
   new SlashCommandBuilder()
     .setName("ping")
-    .setDescription("Comprueba si SANTANDER RP 🕷🕸 responde")
+    .setDescription("Comprueba si SANTANDER RP ðŸ•·ðŸ•¸ responde")
 ].map(c => c.toJSON());
 
 async function main() {
@@ -122,3 +122,4 @@ main().catch(error => {
   console.error("No se pudieron registrar los comandos:", error.message);
   process.exitCode = 1;
 });
+
