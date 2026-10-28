@@ -351,6 +351,25 @@ client.on(Events.InteractionCreate, async interaction => {
         });
       }
 
+      if (interaction.commandName === "comando") {
+        const { EmbedBuilder } = require("discord.js");
+        const ayuda = new EmbedBuilder()
+          .setColor("#3498DB")
+          .setTitle("🕷️ SANTANDER RP | Lista de comandos")
+          .setDescription("Estos son los comandos disponibles y su función.")
+          .addFields(
+            { name: "/comando", value: "Muestra esta lista de comandos.", inline: false },
+            { name: "/ping", value: "Comprueba si el bot responde y muestra su latencia.", inline: false },
+            { name: "/embed", value: "Crea y publica un embed personalizado.", inline: false },
+            { name: "/configurar-canal-strikes", value: "Configura el canal donde se registran los strikes.", inline: false },
+            { name: "/configurar-roles-strikes", value: "Configura los roles para el primer, segundo y tercer strike.", inline: false },
+            { name: "/strike", value: "Registra un strike para un miembro del staff.", inline: false },
+            { name: "/unstrike", value: "Retira strikes según las opciones del comando.", inline: false }
+          )
+          .setFooter({ text: "SANTANDER RP • Ayuda del bot" });
+        return interaction.reply({ embeds: [ayuda], ephemeral: true });
+      }
+
       if (interaction.commandName === "ping") {
         return interaction.reply({
           content: `ðŸ“ Pong: ${client.ws.ping} ms`,

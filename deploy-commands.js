@@ -1,4 +1,4 @@
-﻿require("dotenv").config();
+require("dotenv").config();
 
 const { REST, Routes, SlashCommandBuilder, ChannelType } = require("discord.js");
 
@@ -72,7 +72,11 @@ const commands = [
       .setRequired(true).setMinValue(1).setMaxValue(3))
     .addRoleOption(o => o.setName("rol_strike").setDescription("Rol de strike que se quitará").setRequired(true)),
 
-  new SlashCommandBuilder().setName("ping")
+
+  new SlashCommandBuilder()
+    .setName("comando")
+    .setDescription("Muestra la lista de comandos de SANTANDER RP"),
+new SlashCommandBuilder().setName("ping")
     .setDescription("Comprueba si SANTANDER RP responde")
 ].map(c => c.toJSON());
 
